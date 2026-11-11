@@ -68,10 +68,23 @@ chk('B', '摘要不含旧的错误表述',
     'matches compounds from both herbs' not in norm, '')
 
 # 作者顺序：必须限定在稿件 byline 段内，不能用全文首次出现
-# （合并 PDF 里表单的 Corresponding Author 行在最前，会干扰全文 find）
+# （合并 PDF 里表单的 Corresponding Author 行在最前，会干扰全文 find；
+#   cover letter 结尾的 "Sincerely, Jingchao Wang, on behalf of Gongxi Fang,
+#   Shujun Ren, Yilin Zhang and Baiqing Wang" 也会干扰 —— 那是通讯作者代表
+#   全体作者署名，作者名自然不是投稿顺序。）
+# 做法：找**稿件标题**首次出现处，其后 400 字符才是 byline 段。
 ORDER = ['Gongxi Fang', 'Jingchao Wang', 'Shujun Ren', 'Yilin Zhang', 'Baiqing Wang']
-byline_idx = norm.find('Gongxi Fang', 5000)   # 跳过表单头部
-byline_seg = norm[byline_idx:byline_idx + 400] if byline_idx > 0 else ''
+# 注意：合并 PDF 的开头就是 cover letter，其正文里也会提到稿件标题，
+# 所以不能取"标题首次出现"，要取**主稿标题**那次（前面带编号或出现在
+# cover letter 之后）。稳妥做法：找标题后紧跟 byline 的那次。
+import re as _re
+_byline_idx = -1
+for _m in _re.finditer(r'Single-cell virtual knockout identifies PPARG', norm):
+    _seg = norm[_m.start():_m.start() + 400]
+    if all(n in _seg for n in ORDER):
+        _byline_idx = _m.start()
+        break
+byline_seg = norm[_byline_idx:_byline_idx + 400] if _byline_idx >= 0 else ''
 positions = [byline_seg.find(n) for n in ORDER]
 found = [p for p in positions if p >= 0]
 chk('B', '五位作者姓名全部出现（稿件 byline 段）', len(found) == 5, '%d/5' % len(found))
@@ -119,7 +132,33 @@ chk('B', '双发表说明 "only related submission"',
 
 # 存档 DOI
 chk('B', 'Zenodo 用 concept DOI 23684944', '10.5281/zenodo.23684944' in norm, '')
-chk('B', 'Zenodo 不含旧版本 DOI 23684945', '23684945' not in norm, '')
+
+# ⚠️ 旧 DOI 23684945 有三个合法/非法场所，必须分开判：
+#   (1) 表单区 Data Availability 文本框 → 必须用新 DOI（否则文章里会出现
+#       已退役的 v1 DOI，读者点开会拿到旧版数据集）—— **这是真问题**
+#   (2) 本次主稿正文 Data Availability 段 → 必须用新 DOI
+#   (3) Related Manuscript（前次投稿副本）→ **应当**带旧 DOI，因为那是被
+#       退稿的旧稿，它记录的正是当时的 DOI，出现它是正确的
+# 做法：按 PDF 页逐页判定 —— 表单区页面会有 "Powered by Editorial Manager" 页脚。
+def _pages_with_doi(pdf_d, doi):
+    hits = []
+    for i in range(pdf_d.page_count):
+        t = pdf_d[i].get_text()
+        if doi in t:
+            hits.append((i + 1, 'Powered by Editorial Manager' in t))
+    return hits
+
+_hits_new = _pages_with_doi(d, '23684944')
+_hits_old = _pages_with_doi(d, '23684945')
+_old_form = [p for p, is_form in _hits_old if is_form]
+_old_main = [p for p, is_form in _hits_old if not is_form]
+chk('B', '旧 DOI 23684945 不在表单区（须用 concept DOI）',
+    not _old_form, ('表单区出现于第 %s 页' % _old_form) if _old_form else '')
+chk('B', '旧 DOI 23684945 不在主稿正文',
+    not _old_main, ('正文出现于第 %s 页' % _old_main) if _old_main else '')
+chk('B', 'Related Manuscript 副本保留旧 DOI（证明是旧稿，正确）',
+    any(p > 20 for p, _ in _hits_old) or bool(_old_main),
+    '旧 DOI 出现于第 %s 页' % [p for p, _ in _hits_old])
 chk('B', '含 GitHub 仓库链接',
     'github.com/fanggx2025/bone-marrow-virtual-knockout' in norm, '')
 
