@@ -1,0 +1,11 @@
+# data & intermediates (see Zenodo for derived tables)
+data/
+results/
+docking_files/
+*.rds
+*.h5ad
+*.log
+.Rhistory
+__pycache__/
+*.bak
+*.bak_*

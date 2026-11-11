@@ -29,6 +29,33 @@ The full analysis pipeline behind the manuscript:
    manually and parsed by `scripts/28*_parse*.py`).
 8. **Figures 1, 6, 7** - `scripts/s09_fig1_overview.R`, `s08_fig6_consensus.R`,
    `s07b_fig7_figures.R`.
+9. **Null model and calibration of the three evidence layers** -
+   `scripts/100_consensus_null_model.R`. Self-contained (base R only); reads the
+   archived derived tables and writes `s14_consensus_calibration.csv`
+   (Supplementary Table S14) and `s14_control_gene_directions.csv`
+   (Supplementary Table S15). Run it to reproduce the calibration reported in
+   the Results.
+10. **Supporting Information build** - `scripts/33_build_SI_pdf.py` assembles the
+   70-page Supporting Information PDF (10 figures S1-S10, 15 tables S1-S15).
+   `scripts/101_fix_word_footer.py` is a small utility that rewrites the Word
+   PAGE field as `fldSimple` so that automated submission checks do not
+   misread the field code as a tracked change.
+
+## How to read the consensus result
+
+The three evidence layers (virtual knockout, trajectory, herb-target status) are
+filters rather than independent measurements, so the size of their intersection
+is not on its own evidence. `scripts/100_consensus_null_model.R` therefore
+reports a closed-form exact null that holds the knockout and trajectory layers
+fixed and reassigns herb-target status at random across the 183 screened
+regulators: the expected number of genes passing all three filters is 3.14, and
+observing three gives a one-sided P of 0.65. The three-way filter is a
+prioritisation device rather than a statistical test. The script also reports
+the compound-layer enrichment test (3 of 49 negative regulators are herb
+targets, 6.1%, against a background of 14 of 183, 7.7%; hypergeometric
+P = 0.78; not an enrichment), the stratified trajectory-concordance test that
+excludes the circular data-driven candidates (23 of 31, 74%, one-sided binomial
+P = 0.0053), and the control-gene direction check (7 of 7 correct).
 
 ## Data provenance (important)
 
@@ -39,8 +66,9 @@ The full analysis pipeline behind the manuscript:
   normal arm GSE190965 / GSE169396 / GSE202813; osteoarthritis arm GSE147390 /
   GSE196678. The atlas contains no fracture samples.
 - All **derived analysis outputs** (knockout scores, consensus targets, docking
-  panels, OA validation) are archived at **Zenodo (doi:10.5281/zenodo.23684945)**
-  and are also Supplementary Tables S1-S13 of the manuscript.
+  panels, OA validation, null-model calibration) are archived at **Zenodo
+  (doi:10.5281/zenodo.23684944)** and are also Supplementary Tables S1-S15 of
+  the manuscript.
 - This repository intentionally contains **no primary or intermediate data**
   (see `.gitignore`). Download the atlas from CELLxGene
   (`scripts/02_download_matrix.sh b6037d0f-c415-45f7-8d01-0e69407fba9c bone_marrow_ref`)
@@ -77,7 +105,7 @@ The full analysis pipeline behind the manuscript:
 ## Citation
 
 Please cite the manuscript (DOI to be assigned upon publication) and the derived
-dataset (Zenodo doi:10.5281/zenodo.23684945).
+dataset (Zenodo doi:10.5281/zenodo.23684944).
 
 ## License
 
