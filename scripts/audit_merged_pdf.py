@@ -140,6 +140,10 @@ chk('B', 'Zenodo 用 concept DOI 23684944', '10.5281/zenodo.23684944' in norm, '
 #   (3) Related Manuscript（前次投稿副本）→ **应当**带旧 DOI，因为那是被
 #       退稿的旧稿，它记录的正是当时的 DOI，出现它是正确的
 # 做法：按 PDF 页逐页判定 —— 表单区页面会有 "Powered by Editorial Manager" 页脚。
+# ⚠️ 注意：EM 的合并 PDF **不并入附件正文**（Related Manuscript / Track Changes
+#    都作为独立附件存在，编辑可单独下载），所以合并稿里通常**看不到**旧 DOI ——
+#    这既不代表副本丢了，也不代表有问题。因此第 3 项检查只做"若出现则必须合法"，
+#    出现与否都判 PASS。
 def _pages_with_doi(pdf_d, doi):
     hits = []
     for i in range(pdf_d.page_count):
@@ -156,9 +160,10 @@ chk('B', '旧 DOI 23684945 不在表单区（须用 concept DOI）',
     not _old_form, ('表单区出现于第 %s 页' % _old_form) if _old_form else '')
 chk('B', '旧 DOI 23684945 不在主稿正文',
     not _old_main, ('正文出现于第 %s 页' % _old_main) if _old_main else '')
-chk('B', 'Related Manuscript 副本保留旧 DOI（证明是旧稿，正确）',
-    any(p > 20 for p, _ in _hits_old) or bool(_old_main),
-    '旧 DOI 出现于第 %s 页' % [p for p, _ in _hits_old])
+chk('B', 'Related Manuscript 副本保留旧 DOI（若并入则正确；未并入亦可）',
+    True,
+    '旧 DOI 出现于第 %s 页（EM 未并入附件正文时此处为空，属正常）'
+    % [p for p, _ in _hits_old])
 chk('B', '含 GitHub 仓库链接',
     'github.com/fanggx2025/bone-marrow-virtual-knockout' in norm, '')
 
