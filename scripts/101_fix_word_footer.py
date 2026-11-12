@@ -75,16 +75,30 @@ def main():
     # ---------- 验证 ----------
     z = zipfile.ZipFile(TARGET)
     bad = {}
+    # ⚠️ <w:ins>/<w:del>/rPrChange/pPrChange 在**普通稿件**里是污染，
+    #    但在**Track Changes 版**里是**故意要有的**（编辑要看的正是它们）。
+    #    判据：看文件名是否含 trackchanges —— 是则允许真修订标记，
+    #    但**域代码残留 instrText 仍然必须清零**（坑位58）。
+    is_tc = 'trackchanges' in os.path.basename(TARGET).lower()
     for n in z.namelist():
         if n.endswith('.xml'):
             x = z.read(n).decode('utf-8', errors='ignore')
-            h = {k: x.count(k) for k in
-                 ['<w:ins ', '<w:ins>', '<w:ins/', '<w:instrText', '<w:del ',
-                  'rPrChange', 'pPrChange', 'w:comment', 'insideH', 'insideV']
-                 if x.count(k)}
+            keys = ['<w:instrText', '<w:del ', '<w:del>', '<w:del/', 'w:comment',
+                    'insideH', 'insideV']
+            if not is_tc:
+                keys += ['<w:ins ', '<w:ins>', '<w:ins/', 'rPrChange', 'pPrChange']
+            h = {k: x.count(k) for k in keys if x.count(k)}
             if h:
                 bad[n] = h
-    print('\n最终 dirty 检查:', bad if bad else 'NONE  ✅')
+    if is_tc:
+        print('\n[Track Changes 版] dirty 检查（仅查域代码/批注，修订标记为预期内容）:')
+        print(' ', bad if bad else 'NONE  ✅')
+        # 统计真修订标记数量，确认修订确实存在
+        d = z.read('word/document.xml').decode('utf-8', errors='ignore')
+        print('  真修订标记: <w:ins>=%d  <w:del>=%d' % (
+            len(re.findall(r'<w:ins[ />]', d)), len(re.findall(r'<w:del[ />]', d))))
+    else:
+        print('\n最终 dirty 检查:', bad if bad else 'NONE  ✅')
 
     doc = z.read('word/document.xml').decode('utf-8')
     print('连续行号 lnNumType:', 'lnNumType' in doc)
