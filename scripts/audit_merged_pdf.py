@@ -101,6 +101,33 @@ for kw in ['osteoarthritis', 'virtual knockout', 'PPARG',
            'Eleutherococcus senticosus', 'Schisandra chinensis']:
     chk('B', 'Keywords 含 "%s"' % kw, kw.lower() in norm.lower(), '')
 
+# 表单 Keywords 与主稿 Keywords 必须**逐字一致**（PLOS 会拿表单渲染成文章里的
+# "Keywords:" 行；两处不一致 → 文章里出现两套关键词）。
+# 合并 PDF 里 "Keywords:" 出现两次：第一次=表单区，第二次=主稿正文。
+# ⚠️ 主稿那处的行号会**插在关键词中间**（PLOS 行号渲染在左侧，PDF 文本流里
+#    变成 "...PPARG; 18 Eleutherococcus..."），必须先剥掉行号再比。
+_kw_idx = [m.start() for m in re.finditer(r'Keywords:', norm)]
+if len(_kw_idx) >= 2:
+    _form_kw = norm[_kw_idx[0]:_kw_idx[0] + 300].split('Abstract')[0].strip()
+    _ms_kw = norm[_kw_idx[1]:_kw_idx[1] + 300].split('Introduction')[0].strip()
+    # 剥掉行号（夹在词与词之间的裸数字）和尾部的页码数字
+    _ms_kw = re.sub(r'\s+\d{1,3}\s+(?=[A-Za-z])', ' ', _ms_kw)
+    _ms_kw = re.sub(r'\s+\d{1,3}\s*$', '', _ms_kw).strip()
+    _form_kw = re.sub(r'\s+\d{1,3}\s*$', '', _form_kw).strip()
+    # 只比较关键词本体（去掉 "Keywords:" 前缀后按分号切分，忽略空白差异）
+    _fk = [s.strip() for s in _form_kw.split(';') if s.strip()]
+    _mk = [s.strip() for s in _ms_kw.split(';') if s.strip()]
+    chk('B', '表单 Keywords 与主稿 Keywords 逐字一致',
+        _fk == _mk,
+        '' if _fk == _mk else
+        ('表单=%r | 主稿=%r' % (_fk[-2:], _mk[-2:])))
+    chk('B', 'Keywords 末项为小写 "molecular docking"',
+        bool(_fk) and _fk[-1] == 'molecular docking',
+        _fk[-1] if _fk else '')
+else:
+    chk('B', '表单 Keywords 与主稿 Keywords 逐字一致', False,
+        '只找到 %d 处 Keywords' % len(_kw_idx))
+
 # 资助：合并 PDF 的表单区渲染为 "Financial Disclosure" + 选项列表 + 选中值，
 # 选中值 "Yes" 出现在该区块末尾（EM 的渲染顺序），中间夹着页面分隔。
 fd_i = norm.find('Financial Disclosure')
